@@ -1,11 +1,16 @@
 #include <Arduino.h>
 #include <WiFi.h>
-#include "credentials.hpp"
+#include <NewPing.h>
 #include <ArduinoJson.h>
+#include "credentials.hpp"
 #include "config.hpp"
 #include "mserver.hpp"
+#include "utils.hpp"
 
 MServer server(SERVER_URL);
+NewPing sonar(TRIGGER_PIN, ECHO_PIN, MAX_DISTANCE);
+
+double damCapacity;
 
 void setup()
 {
@@ -24,15 +29,24 @@ void setup()
   DEBUG_PRINTLN("Connected to the WiFi network");
   DEBUG_PRINT("IP Address: ");
   DEBUG_PRINTLN(WiFi.localIP());
+
+  damCapacity = calculateCapacity(DAM_HEIGHT);
 }
 
 void loop()
 {
-  float depth = random(0, 100) / 10.0; // TODO: Replace this with the actual depth sensor reading
+  long depth = DAM_HEIGHT - sonar.ping_cm();
+  double newVolume = calculateCapacity(depth);
+
+  DEBUG_PRINT("Depth: ");
+  DEBUG_PRINTLN(depth);
+  delay(500);
 
   if (millis() - server.getLastDataLogTime() > SERVER_SEND_INTERVAL)
   {
     JsonDocument doc;
+    doc["capacity"] = damCapacity;
+    doc["volume"] = newVolume;
     doc["depth"] = depth;
     String data;
     serializeJson(doc, data);
